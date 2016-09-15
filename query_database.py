@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from pylab import *
+import numpy as np
 from matplotlib.widgets import Slider, Button, RadioButtons
 from sqlalchemy import create_engine, Table, MetaData
 from sqlalchemy.sql import select
@@ -14,7 +15,7 @@ from sqlalchemy.sql import and_, or_, not_
 def read_data(conn, values, path, run, luminosity):
     lumisections = []
     properties = [] #16
-    rs = None
+    ano = []
     for i in range(0, 18):
         properties.append([])
 
@@ -77,36 +78,47 @@ def read_data(conn, values, path, run, luminosity):
         plt.xticks(lumisections)
         x = lumisections
         y = properties[0]
+        nr = 0
+        for prop in properties:
+            if (prop[0]!=0.0 and prop[1]!=0.0):
+                nr+=1
         plot1, = ax.plot(x, y, 'ro')
-        plt.axis([min(x) - 2, max(x) + 2, min(y) * 0.98 - 0.0001,
-                  max(y) * 1.02 + 0.0001])  # 0 values generate bottom==top error for axis, thats why +-0.0001
+        plt.axis([min(x) - 1, max(x) + 1, min(y) - 0.0001,
+                  max(y) + 0.0001])  # 0 values generate bottom==top error for axis, thats why +-0.0001
+        ano = []
         for xy in zip(x, y):
-            ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data')
+            ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
 
         plt.xlabel('Luminosity')
         plt.title(path + '\n' + property_name[4])
         plt.grid()
 
-        ax1 = subplot(111)
         subplots_adjust(bottom=0.25)
         axcolor = 'lightgoldenrodyellow'
         axfreq = axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
-        sfreq = Slider(axfreq, 'Property', 1, 18, valinit=1, valfmt='%0.0f')
-
-        annotations = [True, False, False, False, False, False, False, False, False, False, False, False, False, False,
-                       False, False, False, False, False]
+        sfreq = Slider(axfreq, 'Property', 1, nr, valinit=1, valfmt='%0.0f')
 
         def update(val):
+            [a.remove() for a in ano]
+            ano[:] = []
             y = properties[int(val) - 1]
             plot1.set_ydata(y)
             ax.set_title(path + '\n' + property_name[int(val) + 3])
-            ax.set_ylim([min(y) * 0.98 - 0.0001, max(y) * 1.02 + 0.0001])
+            ax.set_ylim([min(y) - 0.0001, max(y) + 0.0001])
+            for xy in zip(x, y):  # <--
+                ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
 
-            if (not annotations[int(val) - 1]):
-                for xy in zip(x, y):  # <--
-                    ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data')
-                annotations[int(val) - 1] = True
             draw()
+
+        def onpick(event):
+            thisline = event.artist
+            xdata = thisline.get_xdata()
+            ydata = thisline.get_ydata()
+            ind = event.ind
+            points = tuple(zip(xdata[ind], ydata[ind]))
+            print('onpick points:', points)
+
+        fig.canvas.mpl_connect('pick_event', onpick)
 
         sfreq.on_changed(update)
 
