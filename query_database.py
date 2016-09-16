@@ -71,23 +71,19 @@ def show_data(properties):
     property_name = ['PATH', 'LUMISECTION', 'X_MEAN', 'X_MEAN_ERROR', 'X_RMS', 'X_RMS_ERROR', 'X_UNDERFLOW',
                      'X_OVERFLOW', 'Y_MEAN', 'Y_MEAN_ERROR', 'Y_RMS', 'Y_RMS_ERROR', 'Y_UNDERFLOW','Y_OVERFLOW',
                      'Z_MEAN', 'Z_MEAN_ERROR', 'Z_RMS', 'Z_RMS_ERROR', 'Z_UNDERFLOW', 'Z_OVERFLOW']
-
     show_data.isLabeled = True
 
     fig = plt.figure(figsize=(14, 8))
     fig.canvas.set_window_title('Histogram values')
     ax = fig.add_subplot(111)
     plt.xticks(properties[1])
-
     x = properties[1]
     y = properties[2]
     nr = 0
     for prop in properties[2:]:
         if (prop[0]!=0.0 and prop[1]!=0.0):
             nr += 1
-
     plot1, = ax.plot( x, y, 'ro', picker=5)
-
     plt.axis([min(x) - 1, max(x) + 1, min(y) - 0.0001, max(y) + 0.0001])  # 0 values generate bottom==top error for axis, thats why +-0.0001
 
     read_data.ano = []
@@ -104,10 +100,9 @@ def show_data(properties):
     axfreq = axes([0.125, 0.1, 0.78, 0.03], axisbg=axcolor)
     sfreq = Slider(axfreq, 'Property', 1, nr, valinit=1, valfmt='%0.0f')
 
-    def update(val, remove = True):
-        if (remove and len(read_data.ano)):
-            [a.remove() for a in read_data.ano]
-            del read_data.ano[:]
+    def update(val):
+        [a.remove() for a in read_data.ano]
+        del read_data.ano[:]
         y = properties[int(round(val))+1]
         plot1.set_ydata(y)
         ax.set_title(path + '\n' + property_name[int(round(val)) + 3])
@@ -119,7 +114,6 @@ def show_data(properties):
 
     sfreq.on_changed(update)
 
-    selected = []
     def onpick(event):
         thisline = event.artist
         xdata = thisline.get_xdata()
@@ -132,24 +126,27 @@ def show_data(properties):
                 read_data.ano.remove(s)
                 show()
                 return
-        selected.append(points[0][1])
-        read_data.ano.append(ax.annotate(' (%s)' % points[0][1], xy=points[0], textcoords='data'))
-        update(sfreq.val, show_data.isLabeled)
+        read_data.ano.append(ax.annotate(str, xy=points[0], textcoords='data'))
+        show()
 
     fig.canvas.mpl_connect('pick_event', onpick)
 
     rax = plt.axes([0.905, 0.5, 0.085, 0.1])
-    check = CheckButtons(rax, ('Label', ), (True,))
+    label = CheckButtons(rax, ('Label', ), (True,))
 
     def label_click(label):
         if show_data.isLabeled:
             show_data.isLabeled = False
-            update(sfreq.val, True)
+            [a.remove() for a in read_data.ano]
+            del read_data.ano[:]
+            show()
         else:
             show_data.isLabeled = True
-            update(sfreq.val, False)
+            for xy in zip(x, y):
+                read_data.ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
+            update(sfreq.val)
 
-    check.on_clicked(label_click)
+    label.on_clicked(label_click)
 
     show()
 
