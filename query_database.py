@@ -6,13 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pylab import *
 import numpy as np
+from matplotlib.widgets import CheckButtons
 from matplotlib.widgets import Slider, Button, RadioButtons
 from sqlalchemy import create_engine, Table, MetaData
 from sqlalchemy.sql import select
 from sqlalchemy.sql import and_, or_, not_
-
+import ctypes
 
 def read_data(conn, values, path, run, luminosity):
+    labels = [True]
     lumisections = []
     properties = [] #16
     ano = []
@@ -64,27 +66,28 @@ def read_data(conn, values, path, run, luminosity):
             print "No results!"
             sys.exit(2)
         else:
-            print properties
+            print "Properties: :" + properties.__str__() + '\n'
 
     except e:
         print "ERROR: An error occurred:", e
 
-    if (path):
-        print "\nPlots legend:\n ENTRIES\t1\n X_MEAN\t\t2\n X_MEAN_ERROR\t3\n X_RMS\t\t4\n X_RMS_ERROR\t5\n X_UNDERFLOW\t6\n X_OVERFLOW\t7\n Y_MEAN\t\t8\n Y_MEAN_ERROR\t9\n Y_RMS\t\t10\n Y_RMS_ERROR\t11\n Y_UNDERFLOW\t12\n Y_OVERFLOW\t13\n Z_MEAN\t\t14\n Z_MEAN_ERROR\t15\n Z_RMS\t\t16\n Z_RMS_ERROR\t17\n Z_UNDERFLOW\t18\n Z_OVERFLOW\t19\n"
-
-        fig = plt.figure()
-        fig.canvas.set_window_title('Histograms\' properties')
-        ax = fig.add_subplot(111)
-        plt.xticks(lumisections)
-        x = lumisections
-        y = properties[0]
-        nr = 0
+    print "\nPlots legend:\n ENTRIES\t1\n X_MEAN\t\t2\n X_MEAN_ERROR\t3\n X_RMS\t\t4\n X_RMS_ERROR\t5\n X_UNDERFLOW\t6\n X_OVERFLOW\t7\n Y_MEAN\t\t8\n Y_MEAN_ERROR\t9\n Y_RMS\t\t10\n Y_RMS_ERROR\t11\n Y_UNDERFLOW\t12\n Y_OVERFLOW\t13\n Z_MEAN\t\t14\n Z_MEAN_ERROR\t15\n Z_RMS\t\t16\n Z_RMS_ERROR\t17\n Z_UNDERFLOW\t18\n Z_OVERFLOW\t19\n"
+    fig = plt.figure(figsize=(14, 8), facecolor='w')
+    fig.canvas.set_window_title('Histograms\' properties')
+    ax = fig.add_subplot(111)
+    plt.xticks(lumisections)
+    x = lumisections
+    y = properties[0]
+    nr = 0
         for prop in properties:
             if (prop[0]!=0.0 and prop[1]!=0.0):
                 nr+=1
-        plot1, = ax.plot(x, y, 'ro')
+
+        plot1, = ax.plot( x, y, 'ro', picker=5)
+
         plt.axis([min(x) - 1, max(x) + 1, min(y) - 0.0001,
                   max(y) + 0.0001])  # 0 values generate bottom==top error for axis, thats why +-0.0001
+
         ano = []
         for xy in zip(x, y):
             ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
@@ -95,32 +98,55 @@ def read_data(conn, values, path, run, luminosity):
 
         subplots_adjust(bottom=0.25)
         axcolor = 'lightgoldenrodyellow'
-        axfreq = axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
+        axfreq = axes([0.125, 0.1, 0.78, 0.03], axisbg=axcolor)
         sfreq = Slider(axfreq, 'Property', 1, nr, valinit=1, valfmt='%0.0f')
 
-        def update(val):
-            [a.remove() for a in ano]
+        def update(val, remove = True):
+            if (remove):
+                [a.remove() for a in ano]
             ano[:] = []
-            y = properties[int(val) - 1]
+            y = properties[int(round(val)) - 1]
             plot1.set_ydata(y)
-            ax.set_title(path + '\n' + property_name[int(val) + 3])
+            ax.set_title(path + '\n' + property_name[int(round(val)) + 3])
             ax.set_ylim([min(y) - 0.0001, max(y) + 0.0001])
-            for xy in zip(x, y):  # <--
-                ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
-
+            if labels[0]:
+                for xy in zip(x, y):
+                    ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
             draw()
+
 
         def onpick(event):
             thisline = event.artist
             xdata = thisline.get_xdata()
-            ydata = thisline.get_ydata()
+            ydata = np.asarray(thisline.get_ydata())
             ind = event.ind
             points = tuple(zip(xdata[ind], ydata[ind]))
+            print points[0][1]
+            ano.append(ax.annotate(' (%s)' % points[0][1], xy=points[0], textcoords='data'))
+            update(sfreq.val, labels[0])
             print('onpick points:', points)
+            #ctypes.windll.user32.MessageBoxA(0, "Your text", "Your title", 1)
 
         fig.canvas.mpl_connect('pick_event', onpick)
 
         sfreq.on_changed(update)
+
+        rax = plt.axes([0.905, 0.5, 0.085, 0.1])
+        check2 = CheckButtons(rax, ('Label', ), (True,))
+
+        def colorfunc(label):
+            if labels[0]:
+                [a.remove() for a in ano]
+                labels[0] = False
+                draw()
+            else:
+                labels[0] = True
+                update(sfreq.val, False)
+
+            #update2()
+            print 'hi'
+
+        check2.on_clicked(colorfunc)
 
         show()
 
@@ -148,7 +174,7 @@ if __name__ == "__main__":
 
     if args.database:
         try:
-            eng = create_engine(default_database)
+            eng = create_engine(default_database, echo=True)
             conn = eng.connect()
             print "INFO: Connected to the database"
         except sqlite3.Error as e:
