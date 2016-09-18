@@ -1,17 +1,10 @@
-import sys
-# import getopt
 import sqlite3
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
 from pylab import *
 import numpy as np
-from matplotlib.widgets import CheckButtons
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, CheckButtons
 from sqlalchemy import create_engine, Table, MetaData
-from sqlalchemy.sql import select
-from sqlalchemy.sql import and_, or_, not_
-import ctypes
+from sqlalchemy.sql import select, and_
 
 def read_data(conn, values, path, run, luminosity):
     properties = []
@@ -77,8 +70,8 @@ def show_data(properties):
     fig.canvas.set_window_title('Histogram values')
     ax = fig.add_subplot(111)
     plt.xticks(properties[1])
-    x = properties[1]
-    y = properties[2]
+    x = properties[1]  #lumisections
+    y = properties[2]  #x_mean
     nr = 0
     for prop in properties[2:]:
         if (prop[0]!=0.0 and prop[1]!=0.0):
@@ -92,7 +85,7 @@ def show_data(properties):
 
     path = properties[0][0]
     plt.xlabel('Luminosity')
-    plt.title(path + '\n' + property_name[4])
+    plt.title(path + '\n' + property_name[2])
     plt.grid()
 
     subplots_adjust(bottom=0.25)
@@ -105,7 +98,7 @@ def show_data(properties):
         del read_data.ano[:]
         y = properties[int(round(val))+1]
         plot1.set_ydata(y)
-        ax.set_title(path + '\n' + property_name[int(round(val)) + 3])
+        ax.set_title(path + '\n' + property_name[int(round(val)) + 1])
         ax.set_ylim([min(y) - 0.0001, max(y) + 0.0001])
         if show_data.isLabeled:
             for xy in zip(x, y):
@@ -142,8 +135,6 @@ def show_data(properties):
             show()
         else:
             show_data.isLabeled = True
-            for xy in zip(x, y):
-                read_data.ano.append(ax.annotate(' (%s)' % xy[1], xy=xy, textcoords='data'))
             update(sfreq.val)
 
     label.on_clicked(label_click)
@@ -170,21 +161,17 @@ if __name__ == "__main__":
     if (not args.path and not args.luminosity and args.run == None):
         parser.print_help()
         sys.exit(2)
-
-    if args.database:
-        try:
-            eng = create_engine(default_database, echo=True)
+    try:
+        if args.database:
+            eng = create_engine(default_database)
             conn = eng.connect()
             print "INFO: Connected to the database"
-        except sqlite3.Error as e:
-            print "ERROR: An error occurred:", e.args[0]
-    else:
-        try:
-            eng = create_engine(default_database, echo=True)
+        else:
+            eng = create_engine(default_database)
             conn = eng.connect()
             print "INFO: Connected to the default database"
-        except sqlite3.Error as e:
-            print "ERROR: An error occurred:", e.args[0]
+    except sqlite3.Error as e:
+        print "ERROR: An error occurred:", e.args[0]
 
     meta = MetaData(eng)
     values = Table('histogram_values', meta, autoload=True)
@@ -192,5 +179,3 @@ if __name__ == "__main__":
     properties = read_data(conn, values, args.path, args.run, args.luminosity)
 
     show_data(properties)
-
-
