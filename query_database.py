@@ -6,7 +6,7 @@ from matplotlib.widgets import Slider, CheckButtons
 from sqlalchemy import create_engine, Table, MetaData
 from sqlalchemy.sql import select, and_
 
-def read_data(conn, values, path, run, luminosity):
+def read_data(conn, values, path, run, luminosity, min, max):
     properties = []
     for i in range(0, 20):
         properties.append([])
@@ -20,7 +20,19 @@ def read_data(conn, values, path, run, luminosity):
                 properties[i].append(row[i-2 + 4])
 
     try:
-        if (path and luminosity and run >= 0):
+        if (path and min!=None and max!=None and run >= 0):
+            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION >=", min, " WHERE LUMISECTION <=", max, "AND RUN_NUMBER =", run, "AND PATH =", path
+            stm = select([values]).where(and_(values.c.PATH == path, values.c.LUMISECTION >= min, values.c.LUMISECTION <= max, values.c.RUN_NUMBER == run))
+            set_properties(stm)
+        elif (path and min!=None and max==None and run >= 0):
+            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION >=", min, "AND RUN_NUMBER =", run, "AND PATH =", path
+            stm = select([values]).where(and_(values.c.PATH == path, values.c.LUMISECTION >= min, values.c.RUN_NUMBER == run))
+            set_properties(stm)
+        elif (path and min==None and max!=None and run >= 0):
+            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION <=", max, "AND RUN_NUMBER =", run, "AND PATH =", path
+            stm = select([values]).where(and_(values.c.PATH == path, values.c.LUMISECTION <= max, values.c.RUN_NUMBER == run))
+            set_properties(stm)
+        elif (path and luminosity>=0 and run >= 0):
             print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION =", luminosity, "AND RUN_NUMBER =", run, "AND PATH =", path
             stm = select([values]).where(and_(values.c.PATH == path, values.c.LUMISECTION == luminosity, values.c.RUN_NUMBER == run))
             set_properties(stm)
@@ -35,18 +47,6 @@ def read_data(conn, values, path, run, luminosity):
         elif (path and not luminosity and run == None):
             print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE PATH =", path
             stm = select([values]).where(values.c.PATH == path)
-            set_properties(stm)
-        elif (luminosity and run != None):
-            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION =", luminosity, "AND RUN_NUMBER =", run
-            stm = select([values]).where(and_(values.c.RUN_NUMBER == run, values.c.LUMISECTION == luminosity))
-            set_properties(stm)
-        elif (luminosity and run == None):
-            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE LUMISECTION =", luminosity
-            stm = select([values]).where(values.c.LUMISECTION == luminosity)
-            set_properties(stm)
-        elif (not luminosity and run != None):
-            print "QUERY: SELECT * FROM HISTOGRAM_VALUES WHERE RUN_NUMBER =", run
-            stm = select([values]).where(values.c.RUN_NUMBER == run)
             set_properties(stm)
 
         if (properties[0] == []):
@@ -72,10 +72,11 @@ def show_data(properties):
     plt.xticks(properties[1])
     x = properties[1]  #lumisections
     y = properties[2]  #x_mean
-    nr = 0
-    for prop in properties[2:]:
-        if (prop[0]!=0.0 and prop[1]!=0.0):
-            nr += 1
+    nr = 18
+    #In case we need to show only those values which exist
+    #for prop in properties[2:]:
+    #    if (prop[0]!=0.0):
+    #        nr += 1
     plot1, = ax.plot( x, y, 'ro', picker=5)
     plt.axis([min(x) - 1, max(x) + 1, min(y) - 0.0001, max(y) + 0.0001])  # 0 values generate bottom==top error for axis, thats why +-0.0001
 
@@ -154,6 +155,8 @@ if __name__ == "__main__":
     parser.add_argument("-psd", "--password", help="database password")
     parser.add_argument("-r", "--run", help="specify run number for SQL query", type=int)
     parser.add_argument("-l", "--luminosity", help="specify luminosity number for SQL query", type=int)
+    parser.add_argument("-min", "--minLuminosity", help="specify min luminosity number for SQL query", type=int)
+    parser.add_argument("-max", "--maxLuminosity", help="specify max luminosity number for SQL query", type=int)
     parser.add_argument("-p", "--path", help="specify histogram path for SQL query, if you also specify run (but no luminosity), program will display plots of histogram properties vs luminosities")
 
     args = parser.parse_args()
@@ -176,6 +179,6 @@ if __name__ == "__main__":
     meta = MetaData(eng)
     values = Table('histogram_values', meta, autoload=True)
 
-    properties = read_data(conn, values, args.path, args.run, args.luminosity)
+    properties = read_data(conn, values, args.path, args.run, args.luminosity, args.minLuminosity, args.maxLuminosity)
 
     show_data(properties)
